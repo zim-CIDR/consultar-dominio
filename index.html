@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cyberpunk RDAP Lookup</title>
+  <title>Cyber RDAP Lookup</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
 
-    body {
+    body 
+    {
       font-family: 'Share Tech Mono', monospace;
       background: radial-gradient(circle at top left, #0f0f1f, #050510 80%);
       color: #00ffff;
@@ -21,7 +22,8 @@
       text-shadow: 0 0 10px #00ffff80;
     }
 
-    h1 {
+    h1 
+    {
       color: #00ffff;
       font-size: 2rem;
       text-transform: uppercase;
@@ -49,11 +51,13 @@
       transition: all 0.3s;
     }
 
-    input:focus {
+    input:focus 
+    {
       box-shadow: 0 0 10px #00ffff;
     }
 
-    button {
+    button 
+    {
       padding: 10px 25px;
       font-size: 16px;
       background: linear-gradient(90deg, #00ffff, #ff00ff);
@@ -66,12 +70,14 @@
       transition: transform 0.2s, box-shadow 0.2s;
     }
 
-    button:hover {
+    button:hover 
+    {
       transform: scale(1.05);
       box-shadow: 0 0 20px #ff00ff;
     }
 
-    pre {
+    pre 
+    {
       background: rgba(0, 0, 0, 0.6);
       color: #00ffff;
       padding: 1rem;
@@ -86,7 +92,8 @@
       box-shadow: 0 0 15px #00ffff50;
     }
 
-    footer {
+    footer 
+    {
       margin-top: auto;
       color: #ff00ff;
       font-size: 14px;
@@ -94,36 +101,41 @@
       opacity: 0.8;
     }
 
-    .glow {
+    .glow 
+    {
       text-shadow: 0 0 10px #ff00ff, 0 0 20px #00ffff;
     }
   </style>
 </head>
 <body>
-  <h1 class="glow">CYBERPUNK RDAP LOOKUP</h1>
+  <h1 class="glow">CYBER  RDAP LOOKUP</h1>
   <input type="text" id="dominio" placeholder="Digite o domínio (ex: exemplo.com)" />
   <button onclick="consultarDominio()">Consultar</button>
   <pre id="resultado">Resultado aparecerá aqui...</pre>
 
-  <footer>💾 Feito por Will — Powered by RDAP / ICANN</footer>
+  <footer>💾 Feito por zimcidr — Powered by RDAP / ICANN</footer>
 
   <script>
-    async function consultarDominio() {
+    async function consultarDominio() 
+    {
       const dominio = document.getElementById("dominio").value.trim();
       const saida = document.getElementById("resultado");
 
-      if (!dominio) {
+      if (!dominio) 
+      {
         saida.textContent = "⚠️ Digite um domínio primeiro.";
         return;
       }
 
       saida.textContent = "⏳ Consultando RDAP / ICANN...";
 
-      try {
+      try 
+      {
         const tld = dominio.split(".").pop().toLowerCase();
 
         // --- Caso o domínio seja .br ---
-        if (tld === "br") {
+        if (tld === "br") 
+        {
           const resp = await fetch(`https://rdap.registro.br/domain/${dominio}`);
           if (!resp.ok) throw new Error("Domínio não encontrado no Registro.br");
           const data = await resp.json();
@@ -159,7 +171,8 @@
         // --- Demais TLDs ---
         const bootstrap = await fetch("https://data.iana.org/rdap/dns.json").then(r => r.json());
         const service = bootstrap.services.find(s => s[0].some(ext => ext === `.${tld}`));
-        if (!service) {
+        if (!service) 
+        {
           saida.textContent = `❌ Nenhum servidor RDAP encontrado para .${tld}`;
           return;
         }
@@ -185,7 +198,8 @@
         });
 
         // fallback: email do abuse contact
-        if (email === "(oculto)") {
+        if (email === "(oculto)") 
+        {
           const abuse = (data.entities || []).find(e => e.roles?.includes("abuse"));
           const abuseEmail = abuse?.vcardArray?.[1]?.find(v => v[0] === "email")?.[3];
           if (abuseEmail) email = abuseEmail;
@@ -201,7 +215,9 @@
 ⏳ Expira em: ${events["expiration"] || "—"}
 📡 Nameservers:
    - ${nameservers}`;
-      } catch (erro) {
+      } 
+      catch (erro) 
+      {
         console.error(erro);
         saida.textContent = "❌ Erro: " + erro.message;
       }
@@ -209,3 +225,4 @@
   </script>
 </body>
 </html>
+
