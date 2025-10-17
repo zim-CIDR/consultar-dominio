@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cyberpunk RDAP Lookup</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: radial-gradient(circle at top left, #0f0f1f, #050510 80%);
+      color: #00ffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: start;
+      min-height: 100vh;
+      margin: 0;
+      padding: 2rem;
+      text-shadow: 0 0 10px #00ffff80;
+    }
+
+    h1 {
+      color: #00ffff;
+      font-size: 2rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      animation: pulse 3s infinite alternate;
+    }
+
+    @keyframes pulse {
+      from { text-shadow: 0 0 5px #00ffff80; }
+      to { text-shadow: 0 0 20px #00ffff; }
+    }
+
+    input {
+      width: 90%;
+      max-width: 500px;
+      padding: 12px;
+      font-size: 16px;
+      border: 2px solid #00ffff80;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #00ffff;
+      margin-bottom: 15px;
+      outline: none;
+      text-align: center;
+      transition: all 0.3s;
+    }
+
+    input:focus {
+      box-shadow: 0 0 10px #00ffff;
+    }
+
+    button {
+      padding: 10px 25px;
+      font-size: 16px;
+      background: linear-gradient(90deg, #00ffff, #ff00ff);
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      text-transform: uppercase;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 20px #ff00ff;
+    }
+
+    pre {
+      background: rgba(0, 0, 0, 0.6);
+      color: #00ffff;
+      padding: 1rem;
+      border-radius: 10px;
+      margin-top: 20px;
+      width: 90%;
+      max-width: 800px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      border: 2px solid #00ffff60;
+      box-shadow: 0 0 15px #00ffff50;
+    }
+
+    footer {
+      margin-top: auto;
+      color: #ff00ff;
+      font-size: 14px;
+      padding: 1rem;
+      opacity: 0.8;
+    }
+
+    .glow {
+      text-shadow: 0 0 10px #ff00ff, 0 0 20px #00ffff;
+    }
+  </style>
+</head>
+<body>
+  <h1 class="glow">CYBERPUNK RDAP LOOKUP</h1>
+  <input type="text" id="dominio" placeholder="Digite o domínio (ex: exemplo.com)" />
+  <button onclick="consultarDominio()">Consultar</button>
+  <pre id="resultado">Resultado aparecerá aqui...</pre>
+
+  <footer>💾 Feito por Will — Powered by RDAP / ICANN</footer>
+
+  <script>
+    async function consultarDominio() {
+      const dominio = document.getElementById("dominio").value.trim();
+      const saida = document.getElementById("resultado");
+
+      if (!dominio) {
+        saida.textContent = "⚠️ Digite um domínio primeiro.";
+        return;
+      }
+
+      saida.textContent = "⏳ Consultando RDAP / ICANN...";
+
+      try {
+        const tld = dominio.split(".").pop().toLowerCase();
+
+        // --- Caso o domínio seja .br ---
+        if (tld === "br") {
+          const resp = await fetch(`https://rdap.registro.br/domain/${dominio}`);
+          if (!resp.ok) throw new Error("Domínio não encontrado no Registro.br");
+          const data = await resp.json();
+
+          const registrar = data.registrar?.name || "Registro.br";
+          const events = Object.fromEntries((data.events || []).map(e => [e.eventAction, e.eventDate]));
+          const nameservers = (data.nameservers || []).map(ns => ns.ldhName).join("\n   - ") || "Nenhum encontrado";
+
+          // tenta pegar nome e email
+          let owner = "(oculto)";
+          let email = "(não disponível)";
+          (data.entities || []).forEach(e => {
+            const vcard = e.vcardArray?.[1] || [];
+            const fn = vcard.find(v => v[0] === "fn");
+            const em = vcard.find(v => v[0] === "email");
+            if (fn) owner = fn[3];
+            if (em) email = em[3];
+          });
+
+          saida.textContent =
+`🌐 Domínio: ${data.ldhName}
+👤 Titular: ${owner}
+📧 E-mail: ${email}
+🏢 Registrar: ${registrar}
+📅 Criado em: ${events["registration"] || "—"}
+♻️ Atualizado em: ${events["last changed"] || "—"}
+⏳ Expira em: ${events["expiration"] || "—"}
+📡 Nameservers:
+   - ${nameservers}`;
+          return;
+        }
+
+        // --- Demais TLDs ---
+        const bootstrap = await fetch("https://data.iana.org/rdap/dns.json").then(r => r.json());
+        const service = bootstrap.services.find(s => s[0].some(ext => ext === `.${tld}`));
+        if (!service) {
+          saida.textContent = `❌ Nenhum servidor RDAP encontrado para .${tld}`;
+          return;
+        }
+        const rdapServer = service[1][0];
+        const rdapResp = await fetch(`${rdapServer}/domain/${dominio}`);
+        if (!rdapResp.ok) throw new Error("Domínio não encontrado.");
+        const data = await rdapResp.json();
+
+        const registrar = data.registrar?.name || "Não informado";
+        const events = Object.fromEntries((data.events || []).map(e => [e.eventAction, e.eventDate]));
+        const nameservers = (data.nameservers || []).map(ns => ns.ldhName).join("\n   - ") || "Nenhum encontrado";
+
+        // tenta achar e-mail e nome
+        let owner = "(protegido por privacidade)";
+        let email = "(oculto)";
+        (data.entities || []).forEach(ent => {
+          const roles = ent.roles?.join(", ") || "";
+          const vcard = ent.vcardArray?.[1] || [];
+          const fn = vcard.find(v => v[0] === "fn");
+          const em = vcard.find(v => v[0] === "email");
+          if (fn && /registrant|administrative|technical/i.test(roles)) owner = fn[3];
+          if (em && /registrant|administrative|technical/i.test(roles)) email = em[3];
+        });
+
+        // fallback: email do abuse contact
+        if (email === "(oculto)") {
+          const abuse = (data.entities || []).find(e => e.roles?.includes("abuse"));
+          const abuseEmail = abuse?.vcardArray?.[1]?.find(v => v[0] === "email")?.[3];
+          if (abuseEmail) email = abuseEmail;
+        }
+
+        saida.textContent =
+`🌐 Domínio: ${data.ldhName}
+👤 Registrante: ${owner}
+📧 E-mail: ${email}
+🏢 Registrar: ${registrar}
+📅 Criado em: ${events["registration"] || "—"}
+♻️ Atualizado em: ${events["last changed"] || "—"}
+⏳ Expira em: ${events["expiration"] || "—"}
+📡 Nameservers:
+   - ${nameservers}`;
+      } catch (erro) {
+        console.error(erro);
+        saida.textContent = "❌ Erro: " + erro.message;
+      }
+    }
+  </script>
+</body>
+</html>
